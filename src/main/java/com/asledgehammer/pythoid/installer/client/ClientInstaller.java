@@ -7,6 +7,9 @@ import com.asledgehammer.util.ZipUtil;
 import java.io.*;
 import java.util.Scanner;
 
+import static com.asledgehammer.util.IOUtil.copyDirectory;
+import static com.asledgehammer.util.IOUtil.copyFile;
+
 public class ClientInstaller {
 
   public static final String JYTHON_PATCH_ZIP_URL =
@@ -82,7 +85,13 @@ public class ClientInstaller {
         IOUtil.downloadUsingNIO(this.patchURL, this.patchFile.getPath());
       }
 
-      ZipUtil.extractZipFile(this.patchFile, new File(dirCache, "Pythoid-Path" + pzVersion));
+      File dirPatch = new File(dirCache, "Pythoid-Patch" + pzVersion);
+
+      ZipUtil.extractZipFile(this.patchFile, dirPatch);
+
+      line("Applying Pythoid-Patch" + pzVersion + "..");
+      copyDirectory(dirPatch.getPath() + File.separator + "Pythoid-Patch-" + pzVersion, dirPZ.getPath());
+      line("Applied Pythoid-Patch" + pzVersion + ".");
 
     } catch (Exception e) {
       System.err.println("The installer has encountered an error and cannot recover.");
@@ -92,11 +101,10 @@ public class ClientInstaller {
     try {
       if (!hasArg(yargs, "--keep-cache")) {
         System.out.print("Deleting installer cache.. ");
-        if (this.dirCache.delete()) {
-          System.out.println("Success.");
-        } else {
-          System.out.println("Failure.");
-        }
+
+        IOUtil.deleteDirectory(this.dirCache);
+
+        System.out.println("Success.");
       }
     } catch (Exception e) {
       System.err.println("Failed to cleanup resources.");
@@ -110,35 +118,57 @@ public class ClientInstaller {
     return this.patchFile.exists();
   }
 
-  private void yesOrNo(String message, Runnable yes, Runnable no) {
-    while (true) {
-      System.out.println(message + " [Y/N]");
-      String line = scanner.nextLine();
-      if (line.toLowerCase().startsWith("y")) {
-        yes.run();
-        return;
-      } else if (line.toLowerCase().startsWith("n")) {
-        no.run();
-        return;
-      }
-      System.out.println("No decision was entered.");
-    }
-  }
-
   private void requestBackupClassFolders() {
     yesOrNo(
         "Backup folders?",
         () -> {
-          System.out.print("Backing up folders..");
-          backupClassFolders();
-          System.out.println("Success.");
+          File dirBackup = new File(dirCache, "backup_" + pzVersion);
+          System.out.println("Backing up folders..");
+          backupClassFolders(dirBackup);
+          System.out.println("Completed backup \"backup_" + pzVersion + ".zip\".");
         },
         () -> System.out.println("Skipping backup of folders."));
   }
 
-  private void backupClassFolders() {
+  private void backupClassFolders(File dirBackup) {
     try {
-      ZipUtil.zipFolder(new File(dirPZ, "zombie").toPath(), new File(dirPZ, "zombie_backup.zip"));
+
+      if (dirBackup.exists()) {
+        IOUtil.deleteDirectory(dirBackup);
+      }
+
+      if (!dirBackup.mkdirs()) {
+        throw new IOException("Failed to create directory: " + dirBackup.getPath());
+      }
+
+      String backupPath = dirBackup.getPath() + File.separator;
+      String pzPath = dirPZ.getPath() + File.separator;
+
+      copyDirectory(pzPath + "astar", backupPath + "astar");
+      copyDirectory(pzPath + "com", backupPath + "com");
+      copyDirectory(pzPath + "de", backupPath + "de");
+      copyDirectory(pzPath + "fmod", backupPath + "fmod");
+      copyDirectory(pzPath + "javax", backupPath + "javax");
+      copyDirectory(pzPath + "N3D", backupPath + "N3D");
+      copyDirectory(pzPath + "org", backupPath + "org");
+      copyDirectory(pzPath + "se", backupPath + "se");
+      copyDirectory(pzPath + "zombie", backupPath + "zombie");
+      copyFile(pzPath + "ProjectZomboid32.bat", backupPath + "ProjectZomboid32.bat");
+      copyFile(pzPath + "ProjectZomboid64.bat", backupPath + "ProjectZomboid64.bat");
+      copyFile(
+          pzPath + "ProjectZomboid64ShowConsole.bat",
+          backupPath + "ProjectZomboid64ShowConsole.bat");
+      copyFile(
+          pzPath + "ProjectZomboidOpenGLDebug32.bat",
+          backupPath + "ProjectZomboidOpenGLDebug32.bat");
+      copyFile(
+          pzPath + "ProjectZomboidOpenGLDebug64.bat",
+          backupPath + "ProjectZomboidOpenGLDebug64.bat");
+      copyFile(pzPath + "ProjectZomboidServer.bat", backupPath + "ProjectZomboidServer.bat");
+      copyFile(pzPath + "ProjectZomboid32.json", backupPath + "ProjectZomboid32.json");
+      copyFile(pzPath + "ProjectZomboid64.json", backupPath + "ProjectZomboid64.json");
+
+      ZipUtil.zipFolder(dirBackup.toPath(), new File(dirPZ, "backup_" + pzVersion + ".zip"));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -151,28 +181,9 @@ public class ClientInstaller {
     return false;
   }
 
-  private void printTitle() {
-    String firstString = "Pythoid Client Installer V" + VERSION;
-    String borderString = "=".repeat(firstString.length());
-    line(borderString);
-    line();
-    line(firstString);
-    line();
-    lineRight(borderString.length(), "By asledgehammer");
-    line();
-    line(borderString);
-  }
-
-  public static void lineRight(int length, Object line) {
-    String s = line.toString();
-    int subLength = Math.max(0, length - s.length());
-    System.out.println(" ".repeat(subLength) + s);
-  }
-
   public File requestProjectZomboidDirectory() {
     System.out.println("Please enter the PZ directory: (Leave blank to exit installer)");
-    boolean found = false;
-    while (!found) {
+    while (true) {
       String line = scanner.nextLine();
 
       if (line.isEmpty()) {
@@ -194,8 +205,39 @@ public class ClientInstaller {
 
       return dirLine;
     }
+  }
 
-    return null;
+  private void yesOrNo(String message, Runnable yes, Runnable no) {
+    while (true) {
+      System.out.println(message + " [Y/N]");
+      String line = scanner.nextLine();
+      if (line.toLowerCase().startsWith("y")) {
+        yes.run();
+        return;
+      } else if (line.toLowerCase().startsWith("n")) {
+        no.run();
+        return;
+      }
+      System.out.println("No decision was entered.");
+    }
+  }
+
+  private void printTitle() {
+    String firstString = "Pythoid Client Installer V" + VERSION;
+    String borderString = "=".repeat(firstString.length());
+    line(borderString);
+    line();
+    line(firstString);
+    line();
+    lineRight(borderString.length(), "By asledgehammer");
+    line();
+    line(borderString);
+  }
+
+  public static void lineRight(int length, Object line) {
+    String s = line.toString();
+    int subLength = Math.max(0, length - s.length());
+    System.out.println(" ".repeat(subLength) + s);
   }
 
   public static void line(Object line) {

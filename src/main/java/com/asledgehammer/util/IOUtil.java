@@ -4,11 +4,90 @@ import java.io.*;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
 public class IOUtil {
+
+  public static void copyFile(String source, String destination) throws IOException {
+
+    File fSrc = new File(source);
+    if (!fSrc.exists()) {
+      System.err.println("File doesn't exist: " + fSrc.getPath());
+      return;
+    }
+
+    File fDst = new File(destination);
+    boolean existed = fDst.exists();
+
+    Files.copy(Paths.get(source), Paths.get(destination), StandardCopyOption.REPLACE_EXISTING);
+
+    if (existed) {
+      System.out.println("File modified: " + fDst.getPath());
+    } else {
+      System.out.println("File created: " + fDst.getPath());
+    }
+  }
+
+  public static void copyDirectory(
+      String sourceDirectoryLocation, String destinationDirectoryLocation) throws IOException {
+    Files.walk(Paths.get(sourceDirectoryLocation))
+        .forEach(
+            source -> {
+              Path destination =
+                  Paths.get(
+                      destinationDirectoryLocation,
+                      source.toString().substring(sourceDirectoryLocation.length()));
+              try {
+
+                File fSrc = source.toFile();
+                if (!fSrc.exists()) {
+                  System.err.println("File doesn't exist: " + fSrc.getPath());
+                  return;
+                }
+
+                File fDst = destination.toFile();
+                boolean existed = fDst.exists();
+
+                try {
+                  Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
+                } catch (DirectoryNotEmptyException ignored) {
+                }
+
+                if (existed) {
+                  System.out.println("File modified: " + fDst.getPath());
+                } else {
+                  System.out.println("File created: " + fDst.getPath());
+                }
+
+              } catch (IOException e) {
+                e.printStackTrace();
+              }
+            });
+  }
+
+  public static void deleteDirectory(File folder) throws IOException {
+    if (folder.exists()) {
+      String[] entries = folder.list();
+      if (entries != null) {
+        for (String s : entries) {
+          File currentFile = new File(folder.getPath(), s);
+          if (currentFile.isDirectory()) {
+            deleteDirectory(currentFile);
+          } else {
+            if (!currentFile.delete()) {
+              throw new IOException("Failed to delete file: " + currentFile.getPath());
+            }
+          }
+        }
+      }
+    }
+    if (!folder.delete()) {
+      throw new IOException("Failed to delete directory: " + folder.getPath());
+    }
+  }
 
   public static void downloadUsingStream(String urlStr, String file) throws IOException {
     URL url = new URL(urlStr);
