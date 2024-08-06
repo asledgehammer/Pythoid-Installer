@@ -5,10 +5,11 @@ import com.asledgehammer.util.PZUtil;
 import com.asledgehammer.util.ZipUtil;
 
 import java.io.*;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
-import static com.asledgehammer.util.IOUtil.copyDirectory;
-import static com.asledgehammer.util.IOUtil.copyFile;
+import static com.asledgehammer.util.IOUtil.*;
 
 public class ClientInstaller {
 
@@ -17,6 +18,8 @@ public class ClientInstaller {
   public static final String VERSION = "1.00_00";
 
   private final Scanner scanner;
+  private int remotePatchVersion = -1;
+  private int localPatchVersion = -1;
   private String patchURL;
   private File patchFile;
   private String pzVersion;
@@ -78,20 +81,32 @@ public class ClientInstaller {
 
       requestBackupClassFolders();
 
-      this.patchURL = JYTHON_PATCH_ZIP_URL.replaceAll("\\{VERSION}", pzVersion);
-      this.patchFile = new File(dirCache, "Pythoid-Patch" + this.pzVersion + ".zip");
+      this.remotePatchVersion = getRemotePatchVersion();
+      this.localPatchVersion = getLocalPatchVersion();
 
-      if (!hasPatchFiles()) {
-        IOUtil.downloadUsingNIO(this.patchURL, this.patchFile.getPath());
+      line(
+          "Current Pythoid version: "
+              + (localPatchVersion == -1 ? "(Not installed)" : localPatchVersion));
+      line(
+          "Latest Pythoid version: "
+              + (remotePatchVersion == -1 ? "(Unknown)" : remotePatchVersion));
+
+      if (localPatchVersion == -1 || remotePatchVersion > localPatchVersion) {
+        line("A new version of Pythoid-Patch is available!");
+        yesOrNo(
+            "Apply patch?",
+            () -> {
+              try {
+                applyPatch();
+              } catch (Exception e) {
+                e.printStackTrace(System.err);
+              }
+            },
+            () -> {});
+
+      } else {
+        line("Pythoid-Patch is up-to-date and doesn't need to be downloaded & applied.");
       }
-
-      File dirPatch = new File(dirCache, "Pythoid-Patch" + pzVersion);
-
-      ZipUtil.extractZipFile(this.patchFile, dirPatch);
-
-      line("Applying Pythoid-Patch" + pzVersion + "..");
-      copyDirectory(dirPatch.getPath() + File.separator + "Pythoid-Patch-" + pzVersion, dirPZ.getPath());
-      line("Applied Pythoid-Patch" + pzVersion + ".");
 
     } catch (Exception e) {
       System.err.println("The installer has encountered an error and cannot recover.");
@@ -112,6 +127,53 @@ public class ClientInstaller {
     }
 
     scanner.close();
+  }
+
+  private void applyPatch() throws IOException {
+    this.patchURL = JYTHON_PATCH_ZIP_URL.replaceAll("\\{VERSION}", pzVersion);
+    this.patchFile = new File(dirCache, "Pythoid-Patch" + this.pzVersion + ".zip");
+    IOUtil.downloadUsingNIO(this.patchURL, this.patchFile.getPath());
+    File dirPatch = new File(dirCache, "Pythoid-Patch" + pzVersion);
+    ZipUtil.extractZipFile(this.patchFile, dirPatch);
+    line("Applying Pythoid-Patch" + pzVersion + "..");
+    copyDirectory(
+        dirPatch.getPath() + File.separator + "Pythoid-Patch-" + pzVersion, dirPZ.getPath());
+    line("Applied Pythoid-Patch" + pzVersion + ".");
+  }
+
+  private int getLocalPatchVersion() {
+
+    File file = new File(dirPZ, "pythoid_version.txt");
+    if (!file.exists()) {
+      return -1;
+    }
+
+    try {
+      FileReader fr = new FileReader(file);
+      BufferedReader br = new BufferedReader(fr);
+      String out = br.readLine();
+      br.close();
+      return Integer.parseInt(out.split(";")[1].trim());
+    } catch (Exception e) {
+      e.printStackTrace(System.err);
+      return -1;
+    }
+  }
+
+  private int getRemotePatchVersion() {
+    try {
+      String url =
+          "https://raw.githubusercontent.com/asledgehammer/Pythoid-Patch/"
+              + pzVersion
+              + "/pythoid_version.txt";
+      Scanner scanner =
+          new Scanner(new URL(url).openStream(), StandardCharsets.UTF_8).useDelimiter("\\A");
+      String out = scanner.next();
+      scanner.close();
+      return Integer.parseInt(out.split(";")[1].trim());
+    } catch (IOException e) {
+      e.printStackTrace(System.err);
+    }
   }
 
   private boolean hasPatchFiles() {
