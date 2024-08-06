@@ -174,6 +174,7 @@ public class ClientInstaller {
     } catch (IOException e) {
       e.printStackTrace(System.err);
     }
+    return -1;
   }
 
   private boolean hasPatchFiles() {
