@@ -67,11 +67,13 @@ public class PatchInstaller {
                   + "\" failed to run and the installer cannot continue.");
           e.printStackTrace(System.err);
           cleanup();
+          println();
           return;
         }
       }
     }
     cleanup();
+    println();
   }
 
   private void cleanup() {

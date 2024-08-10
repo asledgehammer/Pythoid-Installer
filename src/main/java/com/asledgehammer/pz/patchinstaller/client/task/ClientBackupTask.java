@@ -27,7 +27,7 @@ public class ClientBackupTask extends Task {
     File dirPZ = PatchInstaller.Args.PZ_DIRECTORY;
     File dirCache = PatchInstaller.Args.CACHE_DIRECTORY;
     PZVersion versionPZ = PatchInstaller.Args.PZ_VERSION;
-    File dirBackup = new File(dirCache, "backup_" + versionPZ.toString());
+    File dirBackup = new File(dirCache, "backup_" + versionPZ);
     PZClientBackup backup = new PZClientBackup(versionPZ, dirPZ, dirBackup);
     if (!backup.exists()) {
       if (!silent) {

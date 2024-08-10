@@ -23,7 +23,7 @@ public class PZClientBackup {
   }
 
   public boolean exists() {
-    return this.dirBackup.exists();
+    return this.fileZip.exists();
   }
 
   public void backUp() throws Exception {
