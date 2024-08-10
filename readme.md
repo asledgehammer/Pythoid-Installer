@@ -1,14 +1,6 @@
-# ProjectZomboid-Patch-Installer
+# Pythoid-Installer
 
 ```
-####################################################
-
-Project Zomboid Pythoid-Client-Patch Installer 1.0.0
-
-                                    By asledgehammer
-
-####################################################
-
 Arguments:
 
         --force
