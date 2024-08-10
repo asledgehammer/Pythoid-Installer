@@ -1,5 +1,8 @@
-package com.asledgehammer.util;
+package com.asledgehammer.pz;
 
+import com.asledgehammer.pz.patchinstaller.PZInstallType;
+import com.asledgehammer.pz.patchinstaller.PatchInstaller;
+import com.asledgehammer.util.IOUtil;
 import net.platinumdigitalgroup.jvdf.VDFNode;
 import net.platinumdigitalgroup.jvdf.VDFParser;
 
@@ -12,10 +15,13 @@ import java.util.List;
 
 public class PZUtil {
 
+  public static final int PZ_DEDICATED_SERVER_STEAM_ID = 380870;
+  public static final int PZ_STEAM_ID = 108600;
+
   public static final String JYTHON_INSTALLER_URL =
       "https://repo1.maven.org/maven2/org/python/jython-installer/2.7.3/jython-installer-2.7.3.jar";
 
-  public static void installJython(File dirCache, File dirInstall) throws IOException {
+  public static void installJython(File dirCache, File dirInstall, String version) throws IOException {
 
     String pathInstallerJar =
         dirCache.getAbsolutePath() + File.separator + "jython-installer-2.7.3.jar";
@@ -44,32 +50,12 @@ public class PZUtil {
     }
   }
 
-  public static String getPZVersion(File dirPZ) {
-    try {
-      URL url = dirPZ.toURI().toURL();
-      URL[] urls = new URL[] {url};
-      ClassLoader cl = new URLClassLoader(urls);
-      Class<?> cls = cl.loadClass("zombie.core.Core");
-      Field field = cls.getDeclaredField("gameVersion");
-      field.setAccessible(true);
-      Field field2 = cls.getDeclaredField("buildVersion");
-      field2.setAccessible(true);
-      return field.get(null) + "." + field2.get(null);
-    } catch (MalformedURLException
-        | ClassNotFoundException
-        | NoSuchFieldException
-        | IllegalAccessException e) {
-      e.printStackTrace(System.err);
-    }
-    return null;
-  }
-
   public static boolean isValidPZDirectory(File dir) {
     File fExecutable64 = new File(dir, "ProjectZomboid64.exe");
     return fExecutable64.exists() && new File(dir, "zombie").exists();
   }
 
-  public static File resolveProjectZomboidDirectory() throws Exception {
+  public static File resolveProjectZomboidDirectory(int steamID) throws Exception {
     List<String> lines =
         IOUtil.executeCommandSync(
             "REG QUERY HKLM\\Software\\WOW6432Node\\Valve\\Steam /f \"InstallPath\"", true);
@@ -110,7 +96,7 @@ public class PZUtil {
     for (int index = 0; index < nodeLibraries.size(); index++) {
       VDFNode lib = nodeLibraries.getSubNode("" + index);
       VDFNode libApps = lib.getSubNode("apps");
-      if (libApps.containsKey("108600")) {
+      if (libApps.containsKey("" + steamID)) {
         libFound = lib;
         break;
       }
@@ -120,14 +106,28 @@ public class PZUtil {
       throw new RuntimeException("Steam library not found for Project Zomboid.");
     }
 
-    String dirPZStr =
-        libFound.getString("path")
-            + File.separator
-            + "steamapps"
-            + File.separator
-            + "common"
-            + File.separator
-            + "ProjectZomboid";
+    String dirPZStr = "";
+    if(PatchInstaller.Args.PZ_INSTALL_TYPE == PZInstallType.CLIENT) {
+      dirPZStr =
+              libFound.getString("path")
+                      + File.separator
+                      + "steamapps"
+                      + File.separator
+                      + "common"
+                      + File.separator
+                      + "ProjectZomboid";
+    } else {
+      dirPZStr =
+              libFound.getString("path")
+                      + File.separator
+                      + "steamapps"
+                      + File.separator
+                      + "common"
+                      + File.separator
+                      + "Project Zomboid Dedicated Server";
+    }
+
+
 
     File dirPZ = new File(dirPZStr);
 
