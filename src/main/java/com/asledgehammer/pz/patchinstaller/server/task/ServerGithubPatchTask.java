@@ -40,7 +40,7 @@ public class ServerGithubPatchTask extends Task {
       println("Latest " + this.repository + "-Server version: " + remotePatchVersion);
 
       if (PatchInstaller.Args.FORCE_PATCH
-          || (localPatchVersion == null || remotePatchVersion.isNewer(localPatchVersion))) {
+          || localPatchVersion == null || localPatchVersion.isNewer(remotePatchVersion)) {
 
         if (!PatchInstaller.Args.FORCE_PATCH) {
           println("A new version of " + this.repository + " is available!");
